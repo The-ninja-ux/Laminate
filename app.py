@@ -115,6 +115,14 @@ if st.sidebar.button("Generate Cutting Plan"):
         # === PDF Output ===
         doc = SimpleDocTemplate(pdf_path, pagesize=A4)
         doc.build(story)
+        # === Top-Level Sheet Summary ===
+        st.markdown("### 🧾 Orderable Sheets Summary (per Laminate Code)")
+        order_summary = {
+            "Laminate Code": list(all_sheets.keys()),
+            "Orderable Sheets": list(all_sheets.values())
+        }
+       st.table(order_summary)
+
 
         # === Summary Table ===
         st.markdown("### 📋 Laminate Cutting Summary")
@@ -296,6 +304,7 @@ if st.sidebar.button("Generate Cutting Plan"):
 
 
 # st.success("Done! Adjust laminate codes and dimensions to begin.")
+
 
 
 
