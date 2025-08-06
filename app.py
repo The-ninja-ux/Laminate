@@ -121,7 +121,14 @@ if st.sidebar.button("Generate Cutting Plan"):
             "Laminate Code": list(all_sheets.keys()),
             "Orderable Sheets": list(all_sheets.values())
         }
-        st.table(order_summary)
+        # st.table(order_summary)
+        import pandas as pd
+
+        df_summary = pd.DataFrame(order_summary)
+
+        # Show with left-aligned content
+        st.dataframe(df_summary.style.set_properties(**{'text-align': 'left'}), use_container_width=True)
+
 
 
         # === Summary Table ===
@@ -304,6 +311,7 @@ if st.sidebar.button("Generate Cutting Plan"):
 
 
 # st.success("Done! Adjust laminate codes and dimensions to begin.")
+
 
 
 
