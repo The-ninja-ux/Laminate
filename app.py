@@ -150,10 +150,15 @@ for code in laminate_config.keys():
     st.markdown(scroll_html, unsafe_allow_html=True)
 
 # === Download PDF ===
-with open(pdf_path, "rb") as f:
-    b64_pdf = base64.b64encode(f.read()).decode()
-    href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="Laminate_Cutting_Plan.pdf">📥 Download Laminate Cutting PDF</a>'
-    st.markdown(href, unsafe_allow_html=True)
+if os.path.exists(pdf_path):
+    with open(pdf_path, "rb") as f:
+        b64_pdf = base64.b64encode(f.read()).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64_pdf}" download="Laminate_Cutting_Plan.pdf">📥 Download PDF</a>'
+        st.markdown(href, unsafe_allow_html=True)
+else:
+    st.warning("PDF not available. Please check if input was valid.")
+
 
 st.success("Done! Adjust laminate codes and dimensions to begin.")
+
 
