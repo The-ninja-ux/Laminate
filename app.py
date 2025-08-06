@@ -85,7 +85,13 @@ if st.sidebar.button("Generate Cutting Plan"):
                     x, y = rect.x, rect.y
                     w, h = rect.width - kerf, rect.height - kerf
                     ax.add_patch(Rectangle((x, y), w, h, edgecolor='black', facecolor='#ADD8E6', lw=1.2))
-                    ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=8)
+
+# Only show label if space is enough
+                    if w > 50 and h > 15:
+                        font_size = max(6, min(9, int(min(w, h) / 10)))
+                        rotation = 0 if w >= h else 90
+                    ax.text(x + w / 2, y + h / 2, f"{int(w)}×{int(h)}", ha='center', va='center', fontsize=font_size, rotation=rotation)
+
                     used_area += w * h
 
                 total_area = sheet_w * sheet_h
@@ -290,6 +296,7 @@ if st.sidebar.button("Generate Cutting Plan"):
 
 
 # st.success("Done! Adjust laminate codes and dimensions to begin.")
+
 
 
 
