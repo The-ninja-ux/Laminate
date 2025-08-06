@@ -1,119 +1,123 @@
-# Enhanced script for Laminate Cutting Optimization (Google Colab Compatible)
+## Streamlit-Compatible Laminate Cutting Optimizer
 
+import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as ReportImage
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
 from rectpack import newPacker
 import os
 import re
+import tempfile
+import base64
 
-# === Mount Google Drive (Colab) ===
-from google.colab import drive
-drive.mount('/content/drive')
-
-# === Sample laminate config ===
-laminate_config = {
-    "HGS-WHITE": {
-        "color": "#ffe4e1",
-        "sheet_width": 1220,
-        "sheet_height": 2440,
-        "pieces": [
-            (450, 600, 2),
-            (300, 1200, 3),
-        ]
-    },
-    "HGS-GREY": {
-        "color": "#d3d3d3",
-        "sheet_width": 1220,
-        "sheet_height": 2440,
-        "pieces": [
-            (750, 400, 4),
-            (900, 500, 1),
-        ]
-    }
-}
+# === Streamlit Config ===
+st.set_page_config(layout="wide")
+st.title("🎨 Laminate Cutting Optimizer")
+st.sidebar.header("Laminate Inputs")
 
 kerf = 3
+laminate_config = {}
 
-# === Output paths (Google Drive) ===
-output_dir = "/content/drive/MyDrive/laminate_output"
-os.makedirs(output_dir, exist_ok=True)
-pdf_output = os.path.join(output_dir, "Laminate_Cutting_Plan.pdf")
+# === Input Panel ===
+laminate_code = st.sidebar.text_input("Laminate Code", "HGS-WHITE")
+sheet_width = st.sidebar.number_input("Sheet Width (mm)", min_value=100, value=1220)
+sheet_height = st.sidebar.number_input("Sheet Height (mm)", min_value=100, value=2440)
+panels_input = st.sidebar.text_area("Enter panel sizes (Length x Breadth x Qty, one per line)",
+    "450x600x2\n300 x 1200 x 3\n750x400x4\n900x500x1")
 
-# === Generate cutting plan per laminate ===
-story = []
-styles = getSampleStyleSheet()
-
-for laminate_code, config in laminate_config.items():
-    sheet_width = config["sheet_width"]
-    sheet_height = config["sheet_height"]
-    color = config["color"]
-    raw_pieces = config["pieces"]
-
+if st.sidebar.button("Generate Cutting Plan"):
+    raw_lines = panels_input.strip().splitlines()
     pieces = []
-    for line in raw_pieces:
-        if isinstance(line, tuple):
-            pieces.append(line)
-            continue
-        match = re.match(r"\s*(\d+)\s*[xX]\s*(\d+)(?:\s*[xX]\s*\d+)?\s*", line)
+    for line in raw_lines:
+        match = re.match(r"\s*(\d+)\s*[xX]\s*(\d+)\s*[xX\s]*([0-9]*)\s*", line)
         if match:
             w, h = int(match.group(1)), int(match.group(2))
-            pieces.append((w, h, 1))
+            qty = int(match.group(3)) if match.group(3) else 1
+            pieces.append((w, h, qty))
 
-    packer = newPacker(mode=1, bin_algo=2, rotation=False)
+    if not pieces:
+        st.error("No valid panel sizes found. Please check your input format.")
+        st.stop()
 
-    for i, (w, h, qty) in enumerate(pieces):
-        for _ in range(qty):
-            packer.add_rect(w + kerf, h + kerf, rid=i)
+    laminate_config[laminate_code] = {
+        "color": "#ffe4e1",
+        "sheet_width": sheet_width,
+        "sheet_height": sheet_height,
+        "pieces": pieces
+    }
 
-    for _ in range(100):  # max 100 sheets
-        packer.add_bin(sheet_width, sheet_height)
+    styles = getSampleStyleSheet()
+    story = []
+    sheets_summary = []
 
-    packer.pack()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pdf_path = os.path.join(tmpdir, "Laminate_Cutting_Plan.pdf")
 
-    for sheet_id, abin in enumerate(packer):
-        fig, ax = plt.subplots(figsize=(6.5, 9))
-        ax.set_xlim(0, sheet_width)
-        ax.set_ylim(0, sheet_height)
-        ax.set_title(f"{laminate_code} — Sheet {sheet_id + 1}", fontsize=14, fontweight='bold', pad=15)
-        ax.set_aspect('equal')
-        ax.invert_yaxis()
-        ax.set_facecolor("#fdfdfd")
+        for code, config in laminate_config.items():
+            color = config["color"]
+            sw, sh = config["sheet_width"], config["sheet_height"]
+            piece_list = config["pieces"]
 
-        used_area = 0
-        for rect in abin:
-            x, y = rect.x, rect.y
-            w, h = rect.width - kerf, rect.height - kerf
-            panel = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.015", edgecolor='black', facecolor=color, lw=1.2)
-            ax.add_patch(panel)
-            ax.text(x + w/2, y + h/2, f"{int(w)}×{int(h)}", fontsize=9.5, fontweight='bold', ha='center', va='center', color='black')
-            used_area += w * h
+            packer = newPacker(mode=1, bin_algo=2, rotation=False)
+            for i, (w, h, qty) in enumerate(piece_list):
+                for _ in range(qty):
+                    packer.add_rect(w + kerf, h + kerf, rid=i)
+            for _ in range(100):
+                packer.add_bin(sw, sh)
+            packer.pack()
 
-        total_area = sheet_width * sheet_height
-        waste = total_area - used_area
-        waste_pct = (waste / total_area) * 100 if total_area else 0
+            for sheet_id, abin in enumerate(packer):
+                fig, ax = plt.subplots(figsize=(6.5, 9))
+                ax.set_xlim(0, sw)
+                ax.set_ylim(0, sh)
+                ax.set_title(f"{code} — Sheet {sheet_id + 1}", fontsize=14)
+                ax.set_aspect('equal')
+                ax.invert_yaxis()
+                ax.set_facecolor("#fdfdfd")
 
-        ax.text(10, sheet_height - 40, f"Waste: {waste_pct:.2f}%", fontsize=11, color='red', fontweight='bold')
+                used_area = 0
+                for rect in abin:
+                    x, y = rect.x, rect.y
+                    w, h = rect.width - kerf, rect.height - kerf
+                    panel = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.015", edgecolor='black', facecolor=color, lw=1.2)
+                    ax.add_patch(panel)
+                    ax.text(x + w/2, y + h/2, f"{int(w)}×{int(h)}", fontsize=9, ha='center', va='center')
+                    used_area += w * h
 
-        plt.tight_layout()
-        image_path = os.path.join(output_dir, f"{laminate_code}_sheet_{sheet_id + 1}.png")
-        plt.savefig(image_path, dpi=180, bbox_inches='tight')
-        plt.close()
+                total_area = sw * sh
+                waste = total_area - used_area
+                waste_pct = (waste / total_area) * 100 if total_area else 0
+                ax.text(10, sh - 40, f"Waste: {waste_pct:.2f}%", fontsize=11, color='red')
 
-        story.append(Paragraph(f"<b>Laminate:</b> {laminate_code} — Sheet {sheet_id + 1}", styles["Heading3"]))
-        story.append(Paragraph(f"<b>Waste:</b> {waste_pct:.2f}%", styles["Normal"]))
-        story.append(Spacer(1, 8))
-        story.append(Image(image_path, width=6.5 * inch, height=8.5 * inch))
-        story.append(Spacer(1, 12))
+                img_path = os.path.join(tmpdir, f"{code}_sheet_{sheet_id + 1}.png")
+                plt.tight_layout()
+                plt.savefig(img_path, dpi=180, bbox_inches='tight')
+                plt.close()
 
-# === Generate PDF ===
-doc = SimpleDocTemplate(pdf_output, pagesize=A4, topMargin=20, bottomMargin=20, leftMargin=30, rightMargin=30)
-doc.build(story)
+                story.append(Paragraph(f"<b>Laminate:</b> {code} — Sheet {sheet_id + 1}", styles["Heading3"]))
+                story.append(Paragraph(f"<b>Waste:</b> {waste_pct:.2f}%", styles["Normal"]))
+                story.append(Spacer(1, 8))
+                story.append(ReportImage(img_path, width=6.5 * inch, height=8.5 * inch))
+                story.append(Spacer(1, 12))
 
-print(f"✅ Laminate cutting plan generated: {pdf_output}")
+                sheets_summary.append((code, sheet_id + 1, f"{waste_pct:.2f}%"))
+
+        doc = SimpleDocTemplate(pdf_path, pagesize=A4, topMargin=20, bottomMargin=20, leftMargin=30, rightMargin=30)
+        doc.build(story)
+
+        st.success("✅ Cutting plan generated!")
+        st.write("### Summary")
+        for lam, sid, waste in sheets_summary:
+            st.write(f"• {lam} - Sheet {sid} → Waste: {waste}")
+
+        with open(pdf_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="Laminate_Cutting_Plan.pdf">📥 Download PDF</a>'
+            st.markdown(href, unsafe_allow_html=True)
+
 
 
 
@@ -279,6 +283,7 @@ print(f"✅ Laminate cutting plan generated: {pdf_output}")
 
 
 # st.success("Done! Adjust laminate codes and dimensions to begin.")
+
 
 
 
