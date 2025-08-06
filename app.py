@@ -122,7 +122,7 @@ for code, config in laminate_config.items():
         "Total Panels": len(original_dims),
         "Total Sheets": len(sheets),
         "Orderable Sheets (+5%)": int(len(sheets) * 1.05 + 0.99),
-        "Waste % (avg)": f"{sum((sheet_width * sheet_height - sum(w * h for _, _, w, h, *_ in s)) / (sheet_width * sheet_height) * 100 for s in sheets.values()) / len(sheets):.2f}%"
+        "Waste % (avg)": f"{sum((sheet_width * sheet_height - sum(w * h for _, _, w, h, *_ in s)) / (sheet_width * sheet_height) for s in sheets.values()) / len(sheets):.2f}%" if len(sheets) > 0 else "N/A"
     })
 
 pdf.close()
@@ -156,3 +156,4 @@ with open(pdf_path, "rb") as f:
     st.markdown(href, unsafe_allow_html=True)
 
 st.success("Done! Adjust laminate codes and dimensions to begin.")
+
