@@ -121,7 +121,7 @@ if st.sidebar.button("Generate Cutting Plan"):
             "Laminate Code": list(all_sheets.keys()),
             "Orderable Sheets": list(all_sheets.values())
         }
-       st.table(order_summary)
+        st.table(order_summary)
 
 
         # === Summary Table ===
@@ -304,6 +304,7 @@ if st.sidebar.button("Generate Cutting Plan"):
 
 
 # st.success("Done! Adjust laminate codes and dimensions to begin.")
+
 
 
 
